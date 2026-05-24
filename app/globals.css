@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --font-display: "Arial Black";
+  --font-sans: "Inter";
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: #050505;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(255, 208, 0, 0.2), transparent 28rem),
+    radial-gradient(circle at 88% 8%, rgba(255, 255, 255, 0.08), transparent 26rem),
+    linear-gradient(180deg, #050505 0%, #090909 42%, #050505 100%);
+  color: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: #ffd000;
+  color: #050505;
+}
+
+.noise::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.07;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+
+.gold-text {
+  background: linear-gradient(180deg, #fff9cb 0%, #ffd000 42%, #ff9900 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.premium-card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(12, 12, 12, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 22px 60px rgba(0, 0, 0, 0.42);
+}
+
+.gold-border {
+  position: relative;
+  overflow: hidden;
+}
+
+.gold-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 208, 0, 0.9), rgba(255, 255, 255, 0.12), rgba(255, 208, 0, 0.28));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.coin-face {
+  background:
+    radial-gradient(circle at 32% 26%, #fff7b0 0 9%, transparent 10%),
+    radial-gradient(circle at 50% 50%, #ffe061 0 24%, #ffc400 25% 62%, #a86d00 63% 100%);
+  border: 3px solid #fff2a7;
+  box-shadow: inset -8px -10px 0 rgba(116, 66, 0, 0.22), 0 0 24px rgba(255, 208, 0, 0.42);
+}
+
+.coin-face::after {
+  content: "";
+  position: absolute;
+  inset: 28%;
+  border: 4px solid rgba(70, 43, 0, 0.58);
+  border-radius: 7px;
+  transform: rotate(12deg);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
