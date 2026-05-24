@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import {
   BadgeDollarSign,
   CheckCircle2,
@@ -129,8 +130,14 @@ export function Storefront() {
       <header className="sticky top-0 z-40 border-b border-white/10 bg-black/70 backdrop-blur-xl">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <a href="#" className="flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-rovix-gold text-xl font-black text-black shadow-gold">
-              R
+            <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-xl border border-rovix-gold/50 bg-rovix-gold shadow-gold">
+              <Image
+                src="/images/rovix-navbar-mascot.webp"
+                alt="Mascote Rovix"
+                width={44}
+                height={44}
+                className="h-full w-full object-cover"
+              />
             </span>
             <span className="font-display text-2xl font-black tracking-wide">ROVIX</span>
           </a>
