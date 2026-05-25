@@ -14,6 +14,48 @@ function getConfig() {
   };
 }
 
+function compactRaw(raw: string) {
+  return raw.replace(/\s+/g, " ").trim().slice(0, 180);
+}
+
+function parseProviderResponse(raw: string, fallbackMessage: string): ProviderPaymentResponse {
+  const clean = raw.trim();
+
+  if (!clean) return {};
+
+  if (clean.startsWith("{") || clean.startsWith("[") || clean.startsWith("\"")) {
+    try {
+      const parsed = JSON.parse(clean) as unknown;
+      if (typeof parsed === "string") {
+        return parsed.startsWith("000201") ? { paymentCode: parsed } : { message: parsed };
+      }
+      if (Array.isArray(parsed)) return { data: parsed };
+      if (parsed && typeof parsed === "object") return parsed as ProviderPaymentResponse;
+    } catch {
+      throw new Error(fallbackMessage);
+    }
+  }
+
+  if (clean.startsWith("000201")) {
+    return { paymentCode: clean };
+  }
+
+  if (clean.includes("=") && clean.includes("&")) {
+    const params = new URLSearchParams(clean);
+    return Object.fromEntries(params.entries());
+  }
+
+  if (clean.startsWith("<")) {
+    console.error("[HidePay] HTML response:", compactRaw(clean));
+    throw new Error(
+      "A HidePay retornou uma pagina HTML em vez de JSON. Confira as variaveis PIX_API_BASE_URL, PIX_API_CREATE_PATH e se a API key esta ativa."
+    );
+  }
+
+  console.error("[HidePay] Non JSON response:", compactRaw(clean));
+  throw new Error(fallbackMessage);
+}
+
 function getByPath(data: ProviderPaymentResponse, path: string) {
   return path.split(".").reduce<unknown>((current, key) => {
     if (!current || typeof current !== "object") return undefined;
@@ -31,12 +73,49 @@ function firstString(data: ProviderPaymentResponse, paths: string[]) {
   return "";
 }
 
+function deepFirstString(value: unknown, keys: string[]): string {
+  if (!value || typeof value !== "object") return "";
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = deepFirstString(item, keys);
+      if (found) return found;
+    }
+    return "";
+  }
+
+  const source = value as Record<string, unknown>;
+  const normalizedKeys = keys.map((key) => key.toLowerCase());
+
+  for (const [key, item] of Object.entries(source)) {
+    if (normalizedKeys.includes(key.toLowerCase())) {
+      if (typeof item === "string" && item.trim()) return item;
+      if (typeof item === "number") return String(item);
+    }
+  }
+
+  for (const item of Object.values(source)) {
+    const found = deepFirstString(item, keys);
+    if (found) return found;
+  }
+
+  return "";
+}
+
 function endpoint(baseUrl: string, path: string) {
   return `${baseUrl.replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 function qrUrl(paymentCode: string) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(paymentCode)}`;
+}
+
+function gatewayHeaders() {
+  return {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "User-Agent": "RovixStore/1.0"
+  };
 }
 
 async function gatewayFetch(url: string, init: RequestInit, timeoutMs = 25_000) {
@@ -71,36 +150,81 @@ function mapProviderPayment(data: ProviderPaymentResponse): PixPayment {
       "data.idtransaction",
       "data.transaction_id",
       "data.id"
-    ]) || createId("pix");
-  const paymentCode = firstString(data, [
-    "paymentCode",
-    "payment_code",
-    "pixCode",
-    "pix_code",
-    "copyPaste",
-    "copy_paste",
-    "emv",
-    "brcode",
-    "data.paymentCode",
-    "data.payment_code",
-    "data.pixCode",
-    "data.pix_code",
-    "data.copyPaste",
-    "data.copy_paste",
-    "data.emv"
-  ]);
+    ]) ||
+    deepFirstString(data, ["idTransaction", "idtransaction", "transaction_id", "transactionId", "id"]) ||
+    createId("pix");
+
+  const paymentCode =
+    firstString(data, [
+      "paymentCode",
+      "payment_code",
+      "paymentcode",
+      "pixCode",
+      "pix_code",
+      "qrcode",
+      "qrCode",
+      "qr_code",
+      "copyPaste",
+      "copy_paste",
+      "pixCopiaECola",
+      "copia_e_cola",
+      "copiaecola",
+      "payload",
+      "emv",
+      "brcode",
+      "brCode",
+      "data.paymentCode",
+      "data.payment_code",
+      "data.paymentcode",
+      "data.pixCode",
+      "data.pix_code",
+      "data.qrcode",
+      "data.qrCode",
+      "data.qr_code",
+      "data.copyPaste",
+      "data.copy_paste",
+      "data.payload",
+      "data.emv",
+      "data.brcode"
+    ]) ||
+    deepFirstString(data, [
+      "paymentCode",
+      "payment_code",
+      "paymentcode",
+      "pixCode",
+      "pix_code",
+      "qrcode",
+      "qrCode",
+      "qr_code",
+      "copyPaste",
+      "copy_paste",
+      "pixCopiaECola",
+      "copia_e_cola",
+      "copiaecola",
+      "payload",
+      "emv",
+      "brcode",
+      "brCode"
+    ]);
 
   if (!paymentCode) {
-    throw new Error("A HidePay não retornou o paymentCode do PIX.");
+    console.error("[HidePay] Payment code missing. Response keys:", Object.keys(data).join(", "));
+    throw new Error("A HidePay nao retornou o codigo PIX. Confira se sua API key tem PIX habilitado.");
   }
+
+  const status =
+    firstString(data, ["status", "data.status"]) ||
+    deepFirstString(data, ["status", "payment_status", "paymentStatus"]) ||
+    "WAITING_FOR_APPROVAL";
 
   return {
     id,
-    status: mapStatus(firstString(data, ["status", "data.status"]) || "WAITING_FOR_APPROVAL"),
+    status: mapStatus(status),
     qrCode: qrUrl(paymentCode),
     copyPaste: paymentCode,
     expiresAt:
       firstString(data, ["expiresAt", "expires_at", "expiration", "data.expiresAt", "data.expires_at"]) ||
+      deepFirstString(data, ["expiresAt", "expires_at", "expiration"]) ||
       new Date(Date.now() + 30 * 60_000).toISOString()
   };
 }
@@ -117,7 +241,7 @@ function mapStatus(status: string): PaymentStatus {
 
 function assertGatewayConfig(config: ReturnType<typeof getConfig>) {
   if (!config.apiKey) {
-    throw new Error("Chave da HidePay não configurada. Defina PIX_API_KEY no .env.local.");
+    throw new Error("Chave da HidePay nao configurada. Defina PIX_API_KEY no .env.local e na Vercel.");
   }
 }
 
@@ -127,9 +251,7 @@ export async function createPixPayment(product: Product, customer: CheckoutForm)
 
   const response = await gatewayFetch(endpoint(config.baseUrl, config.createPath), {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: gatewayHeaders(),
     body: JSON.stringify({
       "api-key": config.apiKey,
       amount: product.price,
@@ -145,17 +267,13 @@ export async function createPixPayment(product: Product, customer: CheckoutForm)
   });
 
   const raw = await response.text();
-  let data: ProviderPaymentResponse = {};
-
-  try {
-    data = raw ? (JSON.parse(raw) as ProviderPaymentResponse) : {};
-  } catch {
-    throw new Error("A HidePay respondeu em formato inválido.");
-  }
+  const data = parseProviderResponse(raw, "A HidePay respondeu em formato invalido.");
 
   if (!response.ok) {
-    const message = firstString(data, ["error", "message", "detail", "data.error", "data.message"]);
-    throw new Error(message || "Não foi possível gerar o PIX na HidePay.");
+    const message =
+      firstString(data, ["error", "message", "detail", "data.error", "data.message"]) ||
+      deepFirstString(data, ["error", "message", "detail"]);
+    throw new Error(message || "Nao foi possivel gerar o PIX na HidePay.");
   }
 
   return mapProviderPayment(data);
@@ -167,9 +285,7 @@ export async function getPixPaymentStatus(paymentId: string): Promise<{ status: 
 
   const response = await gatewayFetch(endpoint(config.baseUrl, config.statusPath), {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: gatewayHeaders(),
     body: JSON.stringify({
       "api-key": config.apiKey,
       idtransaction: paymentId
@@ -178,18 +294,19 @@ export async function getPixPaymentStatus(paymentId: string): Promise<{ status: 
   });
 
   const raw = await response.text();
-  let data: ProviderPaymentResponse = {};
-
-  try {
-    data = raw ? (JSON.parse(raw) as ProviderPaymentResponse) : {};
-  } catch {
-    throw new Error("A HidePay respondeu em formato inválido ao consultar o status.");
-  }
+  const data = parseProviderResponse(raw, "A HidePay respondeu em formato invalido ao consultar o status.");
 
   if (!response.ok) {
-    const message = firstString(data, ["error", "message", "detail", "data.error", "data.message"]);
-    throw new Error(message || "Não foi possível consultar o status do pagamento na HidePay.");
+    const message =
+      firstString(data, ["error", "message", "detail", "data.error", "data.message"]) ||
+      deepFirstString(data, ["error", "message", "detail"]);
+    throw new Error(message || "Nao foi possivel consultar o status do pagamento na HidePay.");
   }
 
-  return { status: mapStatus(firstString(data, ["status", "data.status"]) || "WAITING_FOR_APPROVAL") };
+  const status =
+    firstString(data, ["status", "data.status"]) ||
+    deepFirstString(data, ["status", "payment_status", "paymentStatus"]) ||
+    "WAITING_FOR_APPROVAL";
+
+  return { status: mapStatus(status) };
 }
