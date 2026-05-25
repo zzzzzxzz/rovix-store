@@ -1,3 +1,5 @@
+import { getEmailValidationError, normalizeEmail } from "@/lib/validators";
+
 export type RovixUser = {
   id: string;
   name: string;
@@ -53,7 +55,12 @@ export function createUser(name: string, email: string, password: string) {
   const users = getUsers();
   const cleanName = displayUserName(name);
   const normalizedName = normalizeUserName(cleanName);
-  const normalizedEmail = email.trim().toLowerCase();
+  const emailError = getEmailValidationError(email);
+  if (emailError) {
+    throw new Error(emailError);
+  }
+
+  const normalizedEmail = normalizeEmail(email);
 
   if (cleanName.length < 2) {
     throw new Error("Digite um nome de usuário válido.");
@@ -65,6 +72,10 @@ export function createUser(name: string, email: string, password: string) {
 
   if (users.some((user) => user.email === normalizedEmail)) {
     throw new Error("Esse e-mail já está cadastrado.");
+  }
+
+  if (password.trim().length < 6) {
+    throw new Error("A senha precisa ter no minimo 6 caracteres.");
   }
 
   const user: RovixUser = {
@@ -155,7 +166,7 @@ export function changeUserName(user: RovixUser, nextName: string) {
 }
 
 export function findUser(email: string) {
-  return getUsers().find((user) => user.email === email.trim().toLowerCase());
+  return getUsers().find((user) => user.email === normalizeEmail(email));
 }
 
 export function isUserNameTaken(name: string, ignoredUserId?: string) {

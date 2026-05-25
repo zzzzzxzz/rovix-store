@@ -12,6 +12,7 @@ import { createLocalOrder } from "@/lib/orders";
 import { formatCurrency, formatRobux } from "@/lib/format";
 import { getProductContext, getProductLabel } from "@/lib/products";
 import type { CheckoutForm, Order, PixPayment, Product } from "@/lib/types";
+import { getDocumentValidationError, getEmailValidationError, normalizeDocument, normalizeEmail } from "@/lib/validators";
 import { usePaymentStatus } from "@/hooks/use-payment-status";
 
 type CheckoutModalProps = {
@@ -107,6 +108,8 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], accountUs
     return `data:image/png;base64,${payment.qrCode}`;
   }, [payment]);
   const pixReceiver = useMemo(() => (payment?.copyPaste ? getPixReceiver(payment.copyPaste) : null), [payment?.copyPaste]);
+  const emailError = useMemo(() => getEmailValidationError(form.email), [form.email]);
+  const documentError = useMemo(() => getDocumentValidationError(form.document), [form.document]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,6 +122,28 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], accountUs
       return;
     }
 
+    const cleanUsername = form.username.trim();
+    if (cleanUsername.length < 3) {
+      const message = "Informe um username Roblox valido.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    const currentEmailError = getEmailValidationError(form.email);
+    if (currentEmailError) {
+      setError(currentEmailError);
+      toast.error(currentEmailError);
+      return;
+    }
+
+    const currentDocumentError = getDocumentValidationError(form.document);
+    if (currentDocumentError) {
+      setError(currentDocumentError);
+      toast.error(currentDocumentError);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -126,15 +151,21 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], accountUs
     const timeout = window.setTimeout(() => controller.abort(), 35_000);
 
     try {
+      const safeForm = {
+        username: cleanUsername,
+        email: normalizeEmail(form.email),
+        document: normalizeDocument(form.document)
+      };
+
       const payload = isCartCheckout
         ? {
             items: cartLines.map((line) => ({ productId: line.productId, quantity: line.quantity })),
-            ...form
+            ...safeForm
           }
         : {
             productId: product?.id,
             quantity: normalizedQuantity,
-            ...form
+            ...safeForm
           };
 
       const response = await fetch("/api/pix/create", {
@@ -252,6 +283,11 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], accountUs
                     className="h-[52px] rounded-xl border border-white/12 bg-black/45 px-4 text-white outline-none transition read-only:cursor-not-allowed read-only:border-rovix-gold/30 read-only:text-white/70 focus:border-rovix-gold"
                     placeholder="voce@email.com"
                   />
+                  {form.email.trim().length > 0 && (
+                    <span className={`text-xs font-black ${emailError ? "text-red-200" : "text-emerald-200"}`}>
+                      {emailError || "E-mail validado."}
+                    </span>
+                  )}
                 </label>
                 <label className="grid gap-2 text-sm font-bold text-white/80">
                   CPF ou CNPJ
@@ -266,9 +302,14 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], accountUs
                     placeholder="Somente números"
                     inputMode="numeric"
                   />
+                  {form.document.trim().length > 0 && (
+                    <span className={`text-xs font-black ${documentError ? "text-red-200" : "text-emerald-200"}`}>
+                      {documentError || "Documento validado."}
+                    </span>
+                  )}
                 </label>
                 {error && <p className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
-                <Button type="submit" disabled={loading} className="mt-2 w-full">
+                <Button type="submit" disabled={loading || Boolean(emailError) || Boolean(documentError)} className="mt-2 w-full">
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
                   Gerar PIX
                 </Button>

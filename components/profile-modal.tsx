@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, Camera, CheckCircle2, Loader2, Shield, X } from "lucide-react";
+import { Bell, Camera, CheckCircle2, Copy, Loader2, Shield, X } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -174,6 +174,12 @@ export function ProfileModal({ open, user, onClose, onUserChange }: ProfileModal
     }
   }
 
+  async function copyTwoFactorSecret() {
+    if (!setupSecret) return;
+    await navigator.clipboard.writeText(setupSecret);
+    toast.success("Chave manual copiada.");
+  }
+
   async function enableNotifications() {
     if (!user) return;
     if (!("Notification" in window)) {
@@ -282,8 +288,8 @@ export function ProfileModal({ open, user, onClose, onUserChange }: ProfileModal
                 <form onSubmit={handleTwoFactor}>
                   <p className="mb-5 text-sm font-bold text-white/75">
                     {user.twoFactorEnabled
-                      ? "Proteção ativa: o login só conclui após o código do app autenticador."
-                      : "Proteção inativa: escaneie o QR Code para vincular o Google Authenticator."}
+                      ? "Protecao ativa: o login pede o codigo do app autenticador."
+                      : "Opcional: ative apenas se quiser proteger sua conta com Google Authenticator."}
                   </p>
                   {!user.twoFactorEnabled && (
                     <div className="mb-6 grid gap-4 sm:grid-cols-[150px_1fr]">
@@ -292,8 +298,27 @@ export function ProfileModal({ open, user, onClose, onUserChange }: ProfileModal
                         <img src={qrUrl} alt="QR Code 2FA" className="aspect-square w-full rounded-lg object-cover" />
                       </div>
                       <div className="rounded-xl bg-white/[0.04] p-4">
-                        <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Chave manual</p>
-                        <p className="mt-2 break-all font-mono text-sm font-bold text-white/70">{setupSecret}</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Chave manual</p>
+                          <button
+                            type="button"
+                            onClick={copyTwoFactorSecret}
+                            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-white/12 px-3 text-xs font-black uppercase text-white/70 transition hover:border-rovix-gold/60 hover:text-rovix-gold"
+                          >
+                            <Copy className="h-4 w-4" />
+                            Copiar
+                          </button>
+                        </div>
+                        <input
+                          readOnly
+                          value={setupSecret}
+                          onFocus={(event) => event.currentTarget.select()}
+                          onClick={(event) => event.currentTarget.select()}
+                          className="mt-3 h-11 w-full overflow-x-auto rounded-lg border border-white/10 bg-black/45 px-3 font-mono text-sm font-bold text-white/80 outline-none focus:border-rovix-gold/60"
+                        />
+                        <p className="mt-2 text-xs font-bold text-white/45">
+                          Toque ou clique no campo para selecionar, ou use o botao Copiar.
+                        </p>
                       </div>
                     </div>
                   )}

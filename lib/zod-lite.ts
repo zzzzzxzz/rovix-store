@@ -1,3 +1,5 @@
+import { isValidEmail } from "@/lib/validators";
+
 type Shape = Record<string, FieldValidator>;
 
 class ValidationError extends Error {}
@@ -17,7 +19,7 @@ class FieldValidator {
 
   email() {
     this.rules.push((value) =>
-      typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : "E-mail inválido."
+      typeof value === "string" && isValidEmail(value) ? null : "E-mail invalido."
     );
     return this;
   }

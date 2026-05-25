@@ -3,6 +3,7 @@ import { z } from "@/lib/zod-lite";
 import { getProductById } from "@/lib/products";
 import { createPixPayment } from "@/lib/pix-service";
 import type { Product } from "@/lib/types";
+import { getDocumentValidationError, getEmailValidationError, normalizeDocument, normalizeEmail } from "@/lib/validators";
 
 const schema = z.object({
   username: z.string().min(3),
@@ -77,15 +78,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Produto não encontrado." }, { status: 404 });
     }
 
-    const document = parsed.document.replace(/\D/g, "");
+    const emailError = getEmailValidationError(parsed.email);
+    if (emailError) {
+      return NextResponse.json({ error: emailError }, { status: 400 });
+    }
 
-    if (![11, 14].includes(document.length)) {
-      return NextResponse.json({ error: "Informe um CPF ou CNPJ válido." }, { status: 400 });
+    const document = normalizeDocument(parsed.document);
+    const documentError = getDocumentValidationError(document);
+    if (documentError) {
+      return NextResponse.json({ error: documentError }, { status: 400 });
+    }
+
+    if (parsed.username.trim().length < 3) {
+      return NextResponse.json({ error: "Informe um username Roblox valido." }, { status: 400 });
     }
 
     const payment = await createPixPayment(checkoutProduct, {
-      username: parsed.username,
-      email: parsed.email,
+      username: parsed.username.trim(),
+      email: normalizeEmail(parsed.email),
       document
     });
 
