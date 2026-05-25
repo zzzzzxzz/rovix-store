@@ -204,7 +204,7 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], accountUs
     <AnimatePresence>
       {checkoutProduct && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/78 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/78 p-3 py-4 backdrop-blur-md sm:p-4 sm:py-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -213,7 +213,7 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], accountUs
           }}
         >
           <motion.div
-            className="premium-card gold-border relative max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl p-5 sm:p-7"
+            className="premium-card gold-border relative mx-auto w-full max-w-2xl rounded-3xl p-5 sm:p-7"
             initial={{ opacity: 0, y: 28, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 28, scale: 0.96 }}
