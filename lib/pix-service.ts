@@ -5,10 +5,14 @@ import { createId } from "@/lib/utils";
 
 type ProviderPaymentResponse = Record<string, unknown>;
 
+function normalizeGatewayBaseUrl(baseUrl: string) {
+  return baseUrl.replace("https://hidepay.site", "https://hidespay.com");
+}
+
 function getConfig() {
   return {
     apiKey: process.env.PIX_API_KEY,
-    baseUrl: process.env.PIX_API_BASE_URL || "https://hidepay.site/api",
+    baseUrl: normalizeGatewayBaseUrl(process.env.PIX_API_BASE_URL || "https://hidespay.com/api"),
     createPath: process.env.PIX_API_CREATE_PATH || "/v1/gateway/",
     statusPath: process.env.PIX_API_STATUS_PATH || "/v1/webhook/"
   };

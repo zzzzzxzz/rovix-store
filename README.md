@@ -20,7 +20,7 @@ Copie `.env.example` para `.env.local` e configure:
 ```env
 NEXT_PUBLIC_SITE_URL="https://rovixstore.site"
 PIX_API_KEY="sua_chave_hidepay"
-PIX_API_BASE_URL="https://hidepay.site/api"
+PIX_API_BASE_URL="https://hidespay.com/api"
 PIX_API_CREATE_PATH="/v1/gateway/"
 PIX_API_STATUS_PATH="/v1/webhook/"
 ```
