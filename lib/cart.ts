@@ -11,6 +11,7 @@ export type CartLine = CartItem & {
   product: Product;
   total: number;
   robuxTotal: number;
+  gamepassTotal: number;
 };
 
 const CART_KEY = "rovix-cart";
@@ -107,7 +108,8 @@ export function getCartLines(items = getCartItems()): CartLine[] {
         ...item,
         product,
         total: Number((product.price * item.quantity).toFixed(2)),
-        robuxTotal: product.amount * item.quantity
+        robuxTotal: product.kind === "gamepass" ? 0 : product.amount * item.quantity,
+        gamepassTotal: product.kind === "gamepass" ? item.quantity : 0
       }
     ];
   });
@@ -118,10 +120,11 @@ export function getCartSummary(items = getCartItems()) {
 
   return lines.reduce(
     (summary, line) => ({
-      quantity: summary.quantity + line.quantity,
-      subtotal: Number((summary.subtotal + line.total).toFixed(2)),
-      robux: summary.robux + line.robuxTotal
-    }),
-    { quantity: 0, subtotal: 0, robux: 0 }
+          quantity: summary.quantity + line.quantity,
+          subtotal: Number((summary.subtotal + line.total).toFixed(2)),
+          robux: summary.robux + line.robuxTotal,
+          gamepasses: summary.gamepasses + line.gamepassTotal
+        }),
+    { quantity: 0, subtotal: 0, robux: 0, gamepasses: 0 }
   );
 }

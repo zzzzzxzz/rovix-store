@@ -13,6 +13,7 @@ import {
   type CartItem
 } from "@/lib/cart";
 import { formatCurrency, formatRobux } from "@/lib/format";
+import { getProductContext, getProductLabel } from "@/lib/products";
 import type { Product } from "@/lib/types";
 
 type CartModalProps = {
@@ -36,6 +37,12 @@ export function CartModal({
 }: CartModalProps) {
   const lines = getCartLines(items);
   const summary = getCartSummary(items);
+  const summaryLabel =
+    summary.robux > 0 && summary.gamepasses > 0
+      ? `${formatRobux(summary.robux)} Robux + ${summary.gamepasses} gamepass${summary.gamepasses === 1 ? "" : "es"}`
+      : summary.robux > 0
+        ? `${formatRobux(summary.robux)} Robux`
+        : `${summary.gamepasses} gamepass${summary.gamepasses === 1 ? "" : "es"}`;
 
   function handleQuantity(productId: string, quantity: number) {
     onItemsChange(updateCartItem(productId, quantity));
@@ -95,7 +102,7 @@ export function CartModal({
                 Seus pacotes
               </h2>
               <p className="mt-2 max-w-xl text-sm font-bold leading-6 text-white/55">
-                Revise os Robux antes de gerar o PIX. O carrinho fica salvo neste navegador.
+                Revise seus itens antes de gerar o PIX. O carrinho fica salvo neste navegador.
               </p>
             </div>
 
@@ -106,7 +113,7 @@ export function CartModal({
                 </div>
                 <h3 className="mt-5 font-display text-2xl font-black uppercase">Carrinho vazio</h3>
                 <p className="mx-auto mt-2 max-w-sm text-sm font-bold leading-6 text-white/55">
-                  Adicione um pacote na tabela de preços para finalizar sua compra por PIX.
+                  Adicione um pacote ou uma gamepass para finalizar sua compra por PIX.
                 </p>
                 <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                   <Button onClick={choosePackages}>Escolher pacotes</Button>
@@ -130,13 +137,13 @@ export function CartModal({
                           <div className="coin-face h-16 w-16 shrink-0 rounded-full" />
                           <div className="min-w-0">
                             <p className="text-xs font-black uppercase tracking-[0.18em] text-rovix-gold">
-                              {line.product.badge}
+                              {getProductContext(line.product)}
                             </p>
                             <h3 className="mt-1 truncate font-display text-2xl font-black uppercase">
-                              {formatRobux(line.product.amount)} Robux
+                              {getProductLabel(line.product)}
                             </h3>
                             <p className="mt-1 text-sm font-bold text-white/55">
-                              {formatCurrency(line.product.price)} por pacote
+                              {formatCurrency(line.product.price)} por item
                             </p>
                           </div>
                         </div>
@@ -169,7 +176,9 @@ export function CartModal({
 
                       <div className="mt-4 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
                         <p className="text-sm font-bold text-white/50">
-                          {formatRobux(line.robuxTotal)} Robux no total desta linha.
+                          {line.product.kind === "gamepass"
+                            ? `${line.quantity} gamepass${line.quantity === 1 ? "" : "es"} nesta linha.`
+                            : `${formatRobux(line.robuxTotal)} Robux no total desta linha.`}
                         </p>
                         <Button variant="dark" onClick={() => onCheckout(line.product, line.quantity)} className="min-h-11">
                           <CreditCard className="h-4 w-4" />
@@ -192,10 +201,10 @@ export function CartModal({
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.2em] text-rovix-gold">Resumo</p>
                       <h3 className="mt-2 font-display text-3xl font-black uppercase">
-                        {formatRobux(summary.robux)} Robux
+                        {summaryLabel}
                       </h3>
                       <p className="mt-1 text-sm font-bold text-white/60">
-                        {summary.quantity} pacote{summary.quantity === 1 ? "" : "s"} no carrinho.
+                        {summary.quantity} item{summary.quantity === 1 ? "" : "s"} no carrinho.
                       </p>
                     </div>
                     <div className="text-left md:text-right">

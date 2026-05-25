@@ -25,12 +25,19 @@ export function PurchaseHistoryModal({ open, onClose }: PurchaseHistoryModalProp
       orders.reduce(
         (summary, order) => ({
           value: Number((summary.value + order.value).toFixed(2)),
-          robux: summary.robux + order.productAmount
+          robux: summary.robux + order.productAmount,
+          gamepasses: summary.gamepasses + (order.productGamepassCount || (order.productKind === "gamepass" ? 1 : 0))
         }),
-        { value: 0, robux: 0 }
+        { value: 0, robux: 0, gamepasses: 0 }
       ),
     [orders]
   );
+  const totalLabel =
+    total.robux > 0 && total.gamepasses > 0
+      ? `${formatRobux(total.robux)} Robux + ${total.gamepasses} gamepass${total.gamepasses === 1 ? "" : "es"}`
+      : total.robux > 0
+        ? `${formatRobux(total.robux)} Robux`
+        : `${total.gamepasses} gamepass${total.gamepasses === 1 ? "" : "es"}`;
 
   return (
     <AnimatePresence>
@@ -88,7 +95,7 @@ export function PurchaseHistoryModal({ open, onClose }: PurchaseHistoryModalProp
                       Total comprado
                     </p>
                     <p className="mt-3 font-display text-3xl font-black uppercase text-rovix-gold">
-                      {formatRobux(total.robux)} Robux
+                      {totalLabel}
                     </p>
                     <p className="mt-1 text-sm font-bold text-white/50">{formatCurrency(total.value)} em pedidos</p>
                   </div>
@@ -128,8 +135,11 @@ export function PurchaseHistoryModal({ open, onClose }: PurchaseHistoryModalProp
                             </span>
                           </div>
                           <h3 className="mt-3 truncate font-display text-2xl font-black uppercase">
-                            {formatRobux(order.productAmount)} Robux
+                            {order.productTitle || `${formatRobux(order.productAmount)} Robux`}
                           </h3>
+                          {order.productGame && (
+                            <p className="mt-1 truncate text-xs font-bold text-white/50">Jogo: {order.productGame}</p>
+                          )}
                           <p className="mt-1 truncate text-xs font-bold text-rovix-gold">Username: {order.customerName}</p>
                           <p className="mt-1 break-all text-xs font-bold text-white/45">Pedido: {order.id}</p>
                           <p className="mt-1 break-all text-xs font-bold text-white/45">Pagamento: {order.paymentId}</p>

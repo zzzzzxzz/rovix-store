@@ -25,24 +25,28 @@ PIX_API_CREATE_PATH="/v1/gateway/"
 PIX_API_STATUS_PATH="/v1/webhook/"
 ```
 
-O checkout envia a `api-key` no corpo da requisição, conforme a documentação da HidePay. O PIX é criado em `/v1/gateway/` e o status é consultado em `/v1/webhook/`.
+Nunca coloque a chave real no front-end, em componentes React ou em variaveis com prefixo `NEXT_PUBLIC_`.
+`PIX_API_KEY` deve existir somente no `.env.local` local e nas Environment Variables da Vercel.
+
+O checkout chama apenas as rotas internas `/api/pix/create` e `/api/pix/status/[id]`.
+A `api-key` da HidePay e enviada somente pelo servidor, dentro de `lib/pix-service.ts`.
 
 ## Suporte por e-mail
 
-Para o formulário de suporte enviar tickets diretamente para o Gmail, configure:
+Para o formulario de suporte enviar tickets diretamente para o Gmail, configure:
 
 ```env
 SUPPORT_EMAIL_USER="rovixstoresupport@gmail.com"
 SUPPORT_EMAIL_APP_PASSWORD="senha de app do Gmail"
 ```
 
-Use uma senha de app do Google, não a senha normal da conta.
+Use uma senha de app do Google, nao a senha normal da conta.
 
-## Colocar no domínio
+## Colocar no dominio
 
-1. Suba este projeto em uma hospedagem compatível com Next.js, como Vercel, Render, Railway ou VPS Node.
-2. Configure as mesmas variáveis de ambiente na hospedagem.
-3. No painel do domínio `rovixstore.site`, aponte o DNS para a hospedagem.
+1. Suba este projeto em uma hospedagem compativel com Next.js, como Vercel, Render, Railway ou VPS Node.
+2. Configure as mesmas variaveis de ambiente na hospedagem.
+3. No painel do dominio `rovixstore.site`, aponte o DNS para a hospedagem.
 
 Para Vercel, normalmente use:
 

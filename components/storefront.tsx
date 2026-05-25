@@ -26,6 +26,7 @@ import { AuthModal } from "@/components/auth-modal";
 import { CartModal } from "@/components/cart-modal";
 import { CheckoutModal } from "@/components/checkout-modal";
 import { FloatingCoins } from "@/components/floating-coins";
+import { GamepassSection } from "@/components/gamepass-section";
 import { ProfileModal } from "@/components/profile-modal";
 import { PurchaseHistoryModal } from "@/components/purchase-history-modal";
 import { RobloxHero } from "@/components/roblox-hero";
@@ -35,7 +36,7 @@ import { Button } from "@/components/ui/button";
 import { clearSession, getSessionUser, type RovixUser } from "@/lib/auth-store";
 import { addToCart, clearCart, getCartItems, getCartSummary, removeFromCart, type CartItem } from "@/lib/cart";
 import { formatCurrency, formatRobux } from "@/lib/format";
-import { products } from "@/lib/products";
+import { getProductLabel, robuxProducts } from "@/lib/products";
 import type { Product } from "@/lib/types";
 
 const benefits = [
@@ -71,7 +72,22 @@ export function Storefront() {
     document.getElementById("precos")?.scrollIntoView({ behavior: "smooth" });
   }
 
+  function requireAccount() {
+    const currentUser = getSessionUser();
+
+    if (currentUser) {
+      setSessionUser(currentUser);
+      return currentUser;
+    }
+
+    setAuthOpen(true);
+    toast.error("Crie uma conta ou faca login para comprar na Rovix.");
+    return null;
+  }
+
   function openProductCheckout(product: Product, quantity = 1, mode: "direct" | "cart-line" = "direct") {
+    if (!requireAccount()) return;
+
     setSelectedProduct(product);
     setSelectedQuantity(quantity);
     setSelectedCartItems([]);
@@ -81,6 +97,11 @@ export function Storefront() {
 
   function openCartCheckout() {
     const currentItems = getCartItems();
+
+    if (!requireAccount()) {
+      setCartOpen(false);
+      return;
+    }
 
     if (!currentItems.length) {
       toast.message("Seu carrinho está vazio.");
@@ -106,7 +127,7 @@ export function Storefront() {
   function handleAddToCart(product: Product) {
     const nextItems = addToCart(product.id);
     setCartItems(nextItems);
-    toast.success(`${formatRobux(product.amount)} Robux adicionado ao carrinho.`);
+    toast.success(`${getProductLabel(product)} adicionado ao carrinho.`);
   }
 
   function handleCheckoutApproved() {
@@ -144,6 +165,7 @@ export function Storefront() {
           <div className="hidden items-center gap-7 text-sm font-bold text-white/70 md:flex">
             <a href="#beneficios" className="transition hover:text-rovix-gold">Benefícios</a>
             <a href="#precos" className="transition hover:text-rovix-gold">Preços</a>
+            <a href="#gamepasses" className="transition hover:text-rovix-gold">Gamepasses</a>
             <a href="#suporte" className="transition hover:text-rovix-gold">Suporte</a>
           </div>
           <div className="flex items-center gap-2">
@@ -230,6 +252,10 @@ export function Storefront() {
                 <CheckCircle2 className="h-5 w-5" />
                 Ver vantagens
               </Button>
+              <Button variant="dark" onClick={() => document.getElementById("gamepasses")?.scrollIntoView({ behavior: "smooth" })}>
+                <Sparkles className="h-5 w-5" />
+                Gamepasses
+              </Button>
             </div>
           </motion.div>
           <RobloxHero />
@@ -239,7 +265,7 @@ export function Storefront() {
       <section className="border-y border-white/10 bg-rovix-gold py-3 text-black">
         <div className="flex w-[200%] animate-marquee gap-8 whitespace-nowrap font-display text-xl font-black uppercase tracking-wide">
           {[...Array(2)].flatMap((_, group) =>
-            ["ROVIX STORE", "Robux premium", "PIX automático", "Entrega rápida", "Compra segura"].map((item) => (
+            ["ROVIX STORE", "Robux premium", "Gamepasses", "PIX automático", "Entrega rápida", "Compra segura"].map((item) => (
               <span key={`${group}-${item}`} className="flex items-center gap-8">
                 {item}
                 <Disc3 className="h-5 w-5" />
@@ -291,7 +317,7 @@ export function Storefront() {
             </p>
           </div>
           <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
-            {products.map((product, index) => (
+            {robuxProducts.map((product, index) => (
               <motion.article
                 key={product.id}
                 className="gold-border premium-card group relative rounded-3xl p-5"
@@ -324,6 +350,8 @@ export function Storefront() {
           </div>
         </div>
       </section>
+
+      <GamepassSection onAddToCart={handleAddToCart} onBuyNow={openProductCheckout} />
 
       <footer id="suporte" className="border-t border-white/10 bg-black/60 px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -388,6 +416,7 @@ export function Storefront() {
         product={selectedProduct}
         quantity={selectedQuantity}
         cartItems={selectedCartItems}
+        accountUser={sessionUser}
         onClose={closeCheckout}
         onApproved={handleCheckoutApproved}
       />

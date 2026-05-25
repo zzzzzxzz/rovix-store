@@ -1,8 +1,16 @@
 export type Product = {
   id: string;
+  kind?: "robux" | "gamepass" | "cart";
+  title?: string;
+  game?: string;
+  gameSlug?: string;
   amount: number;
   price: number;
   badge: string;
+  icon?: string;
+  accent?: string;
+  itemCount?: number;
+  gamepassCount?: number;
 };
 
 export type CheckoutForm = {
@@ -25,6 +33,11 @@ export type Order = {
   id: string;
   productId: string;
   productAmount: number;
+  productTitle?: string;
+  productKind?: Product["kind"];
+  productGame?: string;
+  productQuantity?: number;
+  productGamepassCount?: number;
   value: number;
   customerName: string;
   customerEmail: string;

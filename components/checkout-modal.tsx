@@ -5,10 +5,12 @@ import { CheckCircle2, Copy, Loader2, PartyPopper, ShieldCheck, X } from "lucide
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import type { RovixUser } from "@/lib/auth-store";
 import { getCartLines, getCartSummary, type CartItem } from "@/lib/cart";
 import { getPixReceiver } from "@/lib/pix-emv";
 import { createLocalOrder } from "@/lib/orders";
 import { formatCurrency, formatRobux } from "@/lib/format";
+import { getProductContext, getProductLabel } from "@/lib/products";
 import type { CheckoutForm, Order, PixPayment, Product } from "@/lib/types";
 import { usePaymentStatus } from "@/hooks/use-payment-status";
 
@@ -16,12 +18,17 @@ type CheckoutModalProps = {
   product: Product | null;
   quantity?: number;
   cartItems?: CartItem[];
+  accountUser?: RovixUser | null;
   onClose: () => void;
   onApproved?: () => void;
 };
 
-export function CheckoutModal({ product, quantity = 1, cartItems = [], onClose, onApproved }: CheckoutModalProps) {
-  const [form, setForm] = useState<CheckoutForm>({ username: "", email: "", document: "" });
+export function CheckoutModal({ product, quantity = 1, cartItems = [], accountUser, onClose, onApproved }: CheckoutModalProps) {
+  const [form, setForm] = useState<CheckoutForm>({
+    username: accountUser?.name || "",
+    email: accountUser?.email || "",
+    document: ""
+  });
   const [payment, setPayment] = useState<PixPayment | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,9 +42,13 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], onClose, 
     if (cartLines.length > 0) {
       return {
         id: "cart-checkout",
+        kind: "cart",
+        title: "Carrinho Rovix",
         amount: cartSummary.robux,
         price: cartSummary.subtotal,
-        badge: "Carrinho"
+        badge: "Carrinho",
+        itemCount: cartSummary.quantity,
+        gamepassCount: cartSummary.gamepasses
       };
     }
 
@@ -47,11 +58,21 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], onClose, 
       ...product,
       amount: product.amount * normalizedQuantity,
       price: Number((product.price * normalizedQuantity).toFixed(2)),
-      badge: normalizedQuantity > 1 ? `${normalizedQuantity} pacotes` : product.badge
+      badge: normalizedQuantity > 1 ? `${normalizedQuantity} itens` : product.badge,
+      itemCount: normalizedQuantity,
+      gamepassCount: product.kind === "gamepass" ? normalizedQuantity : 0
     };
-  }, [cartLines.length, cartSummary.robux, cartSummary.subtotal, normalizedQuantity, product]);
+  }, [cartLines.length, cartSummary.gamepasses, cartSummary.quantity, cartSummary.robux, cartSummary.subtotal, normalizedQuantity, product]);
 
   const approved = status === "approved";
+  const checkoutTitle = checkoutProduct ? getProductLabel(checkoutProduct) : "";
+  const checkoutContext = checkoutProduct ? getProductContext(checkoutProduct) : "";
+  const cartSummaryLabel =
+    cartSummary.robux > 0 && cartSummary.gamepasses > 0
+      ? `${formatRobux(cartSummary.robux)} Robux + ${cartSummary.gamepasses} gamepass${cartSummary.gamepasses === 1 ? "" : "es"}`
+      : cartSummary.robux > 0
+        ? `${formatRobux(cartSummary.robux)} Robux`
+        : `${cartSummary.gamepasses} gamepass${cartSummary.gamepasses === 1 ? "" : "es"}`;
 
   useEffect(() => {
     if (!approved || !checkoutProduct || !payment || order) return;
@@ -70,6 +91,16 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], onClose, 
     }
   }, [checkoutProduct]);
 
+  useEffect(() => {
+    if (!accountUser || payment) return;
+
+    setForm((current) => ({
+      ...current,
+      username: accountUser.name,
+      email: accountUser.email
+    }));
+  }, [accountUser, payment]);
+
   const qrSource = useMemo(() => {
     if (!payment) return "";
     if (payment.qrCode.startsWith("http") || payment.qrCode.startsWith("data:")) return payment.qrCode;
@@ -80,6 +111,13 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], onClose, 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!checkoutProduct) return;
+
+    if (!accountUser) {
+      const message = "Faca login ou crie uma conta para gerar o PIX.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -160,16 +198,14 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], onClose, 
             <div className="pr-10">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-rovix-gold">Checkout PIX</p>
               <h2 className="mt-2 font-display text-3xl font-black uppercase text-white sm:text-4xl">
-                {isCartCheckout ? "Carrinho Rovix" : `${formatRobux(checkoutProduct.amount)} Robux`}
+                {checkoutTitle}
               </h2>
               <p className="mt-2 text-white/65">
                 {isCartCheckout
-                  ? `${formatRobux(checkoutProduct.amount)} Robux em ${cartSummary.quantity} pacote${
-                      cartSummary.quantity === 1 ? "" : "s"
-                    }. `
+                  ? `${cartSummaryLabel} em ${cartSummary.quantity} item${cartSummary.quantity === 1 ? "" : "s"}. `
                   : normalizedQuantity > 1
-                    ? `${normalizedQuantity} pacotes selecionados. `
-                    : ""}
+                    ? `${normalizedQuantity} itens selecionados. `
+                    : `${checkoutContext}. `}
                 Total: <span className="font-black text-rovix-gold">{formatCurrency(checkoutProduct.price)}</span>
               </p>
             </div>
@@ -183,7 +219,7 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], onClose, 
                       {cartLines.map((line) => (
                         <div key={line.productId} className="flex items-center justify-between gap-3 text-sm font-bold">
                           <span className="text-white/70">
-                            {line.quantity}x {formatRobux(line.product.amount)} Robux
+                            {line.quantity}x {getProductLabel(line.product)}
                           </span>
                           <span className="text-rovix-gold">{formatCurrency(line.total)}</span>
                         </div>
@@ -202,7 +238,7 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], onClose, 
                     placeholder="Seu usuário no Roblox"
                   />
                   <span className="text-xs font-bold text-white/45">
-                    Confira bem o username. É por ele que sua entrega será localizada.
+                    Voce pode alterar o username antes de pagar. Confira bem, pois e por ele que sua entrega sera localizada.
                   </span>
                 </label>
                 <label className="grid gap-2 text-sm font-bold text-white/80">
@@ -211,8 +247,9 @@ export function CheckoutModal({ product, quantity = 1, cartItems = [], onClose, 
                     required
                     type="email"
                     value={form.email}
+                    readOnly={Boolean(accountUser)}
                     onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-                    className="h-[52px] rounded-xl border border-white/12 bg-black/45 px-4 text-white outline-none transition focus:border-rovix-gold"
+                    className="h-[52px] rounded-xl border border-white/12 bg-black/45 px-4 text-white outline-none transition read-only:cursor-not-allowed read-only:border-rovix-gold/30 read-only:text-white/70 focus:border-rovix-gold"
                     placeholder="voce@email.com"
                   />
                 </label>

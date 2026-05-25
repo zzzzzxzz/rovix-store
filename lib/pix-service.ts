@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { CheckoutForm, PaymentStatus, PixPayment, Product } from "@/lib/types";
 import { createId } from "@/lib/utils";
 

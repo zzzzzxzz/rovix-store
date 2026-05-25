@@ -34,15 +34,19 @@ function getCheckoutProduct(body: Record<string, unknown>): Product | null {
 
         return {
           id: "cart-checkout",
+          kind: "cart",
+          title: "Carrinho Rovix",
           amount: summary.amount + product.amount * quantity,
           price: Number((summary.price + product.price * quantity).toFixed(2)),
-          badge: "Carrinho"
+          badge: "Carrinho",
+          itemCount: (summary.itemCount || 0) + quantity,
+          gamepassCount: (summary.gamepassCount || 0) + (product.kind === "gamepass" ? quantity : 0)
         };
       },
-      { id: "cart-checkout", amount: 0, price: 0, badge: "Carrinho" }
+      { id: "cart-checkout", kind: "cart", title: "Carrinho Rovix", amount: 0, price: 0, badge: "Carrinho", itemCount: 0, gamepassCount: 0 }
     );
 
-    return cartProduct.amount > 0 && cartProduct.price > 0 ? cartProduct : null;
+    return (cartProduct.itemCount || 0) > 0 && cartProduct.price > 0 ? cartProduct : null;
   }
 
   const productId = typeof body.productId === "string" ? body.productId : "";
