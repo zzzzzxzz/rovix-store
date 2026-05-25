@@ -118,6 +118,26 @@ function gatewayHeaders() {
   };
 }
 
+function providerMessage(data: ProviderPaymentResponse) {
+  return (
+    firstString(data, [
+      "error",
+      "message",
+      "detail",
+      "details",
+      "descricao",
+      "description",
+      "motivo",
+      "reason",
+      "data.error",
+      "data.message",
+      "data.detail",
+      "response.error",
+      "response.message"
+    ]) || deepFirstString(data, ["error", "message", "detail", "details", "descricao", "description", "motivo", "reason"])
+  );
+}
+
 async function gatewayFetch(url: string, init: RequestInit, timeoutMs = 25_000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -208,8 +228,9 @@ function mapProviderPayment(data: ProviderPaymentResponse): PixPayment {
     ]);
 
   if (!paymentCode) {
-    console.error("[HidePay] Payment code missing. Response keys:", Object.keys(data).join(", "));
-    throw new Error("A HidePay nao retornou o codigo PIX. Confira se sua API key tem PIX habilitado.");
+    const message = providerMessage(data);
+    console.error("[HidePay] Payment code missing. Response:", JSON.stringify(data).slice(0, 600));
+    throw new Error(message || "A HidePay nao retornou o codigo PIX. Confira se sua API key tem PIX habilitado.");
   }
 
   const status =
@@ -256,7 +277,7 @@ export async function createPixPayment(product: Product, customer: CheckoutForm)
       "api-key": config.apiKey,
       amount: product.price,
       method: "pix",
-      external_reference: product.id,
+      external_reference: createId("rovix"),
       client: {
         name: customer.username,
         document: customer.document.replace(/\D/g, ""),
@@ -270,9 +291,7 @@ export async function createPixPayment(product: Product, customer: CheckoutForm)
   const data = parseProviderResponse(raw, "A HidePay respondeu em formato invalido.");
 
   if (!response.ok) {
-    const message =
-      firstString(data, ["error", "message", "detail", "data.error", "data.message"]) ||
-      deepFirstString(data, ["error", "message", "detail"]);
+    const message = providerMessage(data);
     throw new Error(message || "Nao foi possivel gerar o PIX na HidePay.");
   }
 
@@ -297,9 +316,7 @@ export async function getPixPaymentStatus(paymentId: string): Promise<{ status: 
   const data = parseProviderResponse(raw, "A HidePay respondeu em formato invalido ao consultar o status.");
 
   if (!response.ok) {
-    const message =
-      firstString(data, ["error", "message", "detail", "data.error", "data.message"]) ||
-      deepFirstString(data, ["error", "message", "detail"]);
+    const message = providerMessage(data);
     throw new Error(message || "Nao foi possivel consultar o status do pagamento na HidePay.");
   }
 
