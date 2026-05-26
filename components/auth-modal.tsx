@@ -5,7 +5,7 @@ import { AlertCircle, CheckCircle2, KeyRound, Loader2, LogIn, UserPlus, X } from
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createUser, findUser, isUserNameTaken, setSession, type RovixUser } from "@/lib/auth-store";
+import { createUser, findUser, isUserNameTaken, setSession, verifyUserPassword, type RovixUser } from "@/lib/auth-store";
 import { verifyTotp } from "@/lib/totp";
 import { getEmailValidationError, normalizeEmail } from "@/lib/validators";
 
@@ -47,7 +47,7 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
       if (emailError) throw new Error(emailError);
 
       const user = findUser(loginForm.email);
-      if (!user || user.password !== loginForm.password) {
+      if (!user || !verifyUserPassword(user, loginForm.password)) {
         throw new Error("E-mail ou senha invalidos.");
       }
 

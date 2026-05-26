@@ -32,22 +32,66 @@ function displayUserName(name: string) {
   return name.trim().replace(/\s+/g, " ");
 }
 
+function normalizePassword(password: string) {
+  return password.trim();
+}
+
 function getRecentNameChanges(user: RovixUser, now = Date.now()) {
   const log = Array.isArray(user.nameChangeLog) ? user.nameChangeLog : [];
   return log.filter((timestamp) => typeof timestamp === "number" && now - timestamp < NAME_CHANGE_WINDOW_MS);
+}
+
+function normalizeStoredUser(value: unknown): RovixUser | null {
+  if (!value || typeof value !== "object") return null;
+
+  const user = value as Partial<RovixUser>;
+  const id = typeof user.id === "string" ? user.id.trim() : "";
+  const name = typeof user.name === "string" ? displayUserName(user.name) : "";
+  const email = typeof user.email === "string" ? normalizeEmail(user.email) : "";
+  const password = typeof user.password === "string" ? normalizePassword(user.password) : "";
+
+  if (!id || !name || !email || !password) return null;
+
+  return {
+    id,
+    name,
+    email,
+    password,
+    avatarDataUrl: typeof user.avatarDataUrl === "string" ? user.avatarDataUrl : undefined,
+    notificationToken: typeof user.notificationToken === "string" ? user.notificationToken : undefined,
+    twoFactorEnabled: Boolean(user.twoFactorEnabled),
+    twoFactorSecret: typeof user.twoFactorSecret === "string" ? user.twoFactorSecret : undefined,
+    nameChangeLog: Array.isArray(user.nameChangeLog)
+      ? user.nameChangeLog.filter((timestamp) => typeof timestamp === "number")
+      : undefined,
+    nameChangeCooldownUntil:
+      typeof user.nameChangeCooldownUntil === "number" ? user.nameChangeCooldownUntil : undefined
+  };
 }
 
 export function getUsers(): RovixUser[] {
   if (typeof window === "undefined") return [];
 
   try {
-    return JSON.parse(window.localStorage.getItem(USERS_KEY) || "[]") as RovixUser[];
+    const parsed = JSON.parse(window.localStorage.getItem(USERS_KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+
+    const users = parsed
+      .map((item) => normalizeStoredUser(item))
+      .filter((user): user is RovixUser => Boolean(user));
+
+    if (users.length !== parsed.length) {
+      saveUsers(users);
+    }
+
+    return users;
   } catch {
     return [];
   }
 }
 
 export function saveUsers(users: RovixUser[]) {
+  if (typeof window === "undefined") return;
   window.localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
@@ -55,6 +99,7 @@ export function createUser(name: string, email: string, password: string) {
   const users = getUsers();
   const cleanName = displayUserName(name);
   const normalizedName = normalizeUserName(cleanName);
+  const cleanPassword = normalizePassword(password);
   const emailError = getEmailValidationError(email);
   if (emailError) {
     throw new Error(emailError);
@@ -74,7 +119,7 @@ export function createUser(name: string, email: string, password: string) {
     throw new Error("Esse e-mail já está cadastrado.");
   }
 
-  if (password.trim().length < 6) {
+  if (cleanPassword.length < 6) {
     throw new Error("A senha precisa ter no minimo 6 caracteres.");
   }
 
@@ -82,7 +127,7 @@ export function createUser(name: string, email: string, password: string) {
     id: `user_${Date.now().toString(36)}`,
     name: cleanName,
     email: normalizedEmail,
-    password,
+    password: cleanPassword,
     twoFactorEnabled: false
   };
 
@@ -103,7 +148,12 @@ export function updateUser(updatedUser: RovixUser) {
     throw new Error("Esse nome de usuário já está em uso. Escolha outro.");
   }
 
-  const nextUser = { ...updatedUser, name: cleanName };
+  const nextUser = {
+    ...updatedUser,
+    name: cleanName,
+    email: normalizeEmail(updatedUser.email),
+    password: normalizePassword(updatedUser.password)
+  };
   const nextUsers = users.map((user) => (user.id === nextUser.id ? nextUser : user));
   saveUsers(nextUsers);
   setSession(nextUser);
@@ -166,7 +216,12 @@ export function changeUserName(user: RovixUser, nextName: string) {
 }
 
 export function findUser(email: string) {
-  return getUsers().find((user) => user.email === normalizeEmail(email));
+  const normalizedEmail = normalizeEmail(email);
+  return getUsers().find((user) => normalizeEmail(user.email) === normalizedEmail);
+}
+
+export function verifyUserPassword(user: RovixUser, password: string) {
+  return normalizePassword(user.password) === normalizePassword(password);
 }
 
 export function isUserNameTaken(name: string, ignoredUserId?: string) {
@@ -176,7 +231,18 @@ export function isUserNameTaken(name: string, ignoredUserId?: string) {
 }
 
 export function setSession(user: RovixUser) {
-  window.localStorage.setItem(SESSION_KEY, user.id);
+  if (typeof window === "undefined") return;
+  const storedUser = normalizeStoredUser(user);
+  if (!storedUser) return;
+
+  const users = getUsers();
+  const hasUser = users.some((currentUser) => currentUser.id === storedUser.id);
+  const nextUsers = hasUser
+    ? users.map((currentUser) => (currentUser.id === storedUser.id ? storedUser : currentUser))
+    : [storedUser, ...users];
+
+  saveUsers(nextUsers);
+  window.localStorage.setItem(SESSION_KEY, storedUser.id);
 }
 
 export function getSessionUser() {

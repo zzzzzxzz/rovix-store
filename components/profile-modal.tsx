@@ -10,6 +10,7 @@ import {
   getSessionUser,
   isUserNameTaken,
   updateUser,
+  verifyUserPassword,
   type RovixUser
 } from "@/lib/auth-store";
 import { createOtpAuthUrl, createQrUrl, generateTotpSecret, verifyTotp } from "@/lib/totp";
@@ -142,7 +143,7 @@ export function ProfileModal({ open, user, onClose, onUserChange }: ProfileModal
     event.preventDefault();
     if (!user) return;
 
-    if (password !== user.password) {
+    if (!verifyUserPassword(user, password)) {
       toast.error("Senha da conta incorreta.");
       return;
     }
