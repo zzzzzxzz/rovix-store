@@ -19,6 +19,37 @@ const purposeLabels: Record<EmailVerificationPurpose, string> = {
   "verify-email": "verificar seu e-mail"
 };
 
+function getMailErrorMessage(error: unknown) {
+  const mailError = error as {
+    code?: string;
+    command?: string;
+    response?: string;
+    responseCode?: number;
+    message?: string;
+  };
+
+  console.error("[Rovix email verification]", {
+    code: mailError.code,
+    command: mailError.command,
+    responseCode: mailError.responseCode,
+    message: mailError.message
+  });
+
+  if (mailError.code === "EAUTH" || mailError.responseCode === 534 || mailError.responseCode === 535) {
+    return "Falha ao autenticar no Gmail. Confira SUPPORT_EMAIL_USER e SUPPORT_EMAIL_APP_PASSWORD na Vercel, sem espacos, e faca redeploy.";
+  }
+
+  if (mailError.code === "ECONNECTION" || mailError.code === "ETIMEDOUT" || mailError.code === "ESOCKET") {
+    return "Nao foi possivel conectar ao Gmail agora. Tente novamente em alguns minutos.";
+  }
+
+  if (mailError.responseCode === 550 || mailError.responseCode === 553) {
+    return "O Gmail recusou o endereco de destino. Confira se o e-mail digitado existe.";
+  }
+
+  return "Nao foi possivel enviar o codigo agora.";
+}
+
 export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as EmailCodePayload;
@@ -69,7 +100,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ ok: true, token, expiresInSeconds: 600 });
-  } catch {
-    return NextResponse.json({ error: "Nao foi possivel enviar o codigo agora." }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: getMailErrorMessage(error) }, { status: 500 });
   }
 }
