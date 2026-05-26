@@ -38,9 +38,11 @@ Para o formulario de suporte enviar tickets diretamente para o Gmail, configure:
 ```env
 SUPPORT_EMAIL_USER="rovixstoresupport@gmail.com"
 SUPPORT_EMAIL_APP_PASSWORD="senha de app do Gmail"
+EMAIL_VERIFICATION_SECRET="uma chave grande aleatoria"
 ```
 
 Use uma senha de app do Google, nao a senha normal da conta.
+O `EMAIL_VERIFICATION_SECRET` assina os codigos de verificacao de e-mail. Configure tambem na Vercel.
 
 ## Colocar no dominio
 

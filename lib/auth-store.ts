@@ -4,6 +4,7 @@ export type RovixUser = {
   id: string;
   name: string;
   email: string;
+  emailVerified: boolean;
   password: string;
   avatarDataUrl?: string;
   notificationToken?: string;
@@ -56,6 +57,7 @@ function normalizeStoredUser(value: unknown): RovixUser | null {
     id,
     name,
     email,
+    emailVerified: Boolean(user.emailVerified),
     password,
     avatarDataUrl: typeof user.avatarDataUrl === "string" ? user.avatarDataUrl : undefined,
     notificationToken: typeof user.notificationToken === "string" ? user.notificationToken : undefined,
@@ -95,7 +97,7 @@ export function saveUsers(users: RovixUser[]) {
   window.localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
-export function createUser(name: string, email: string, password: string) {
+export function createUser(name: string, email: string, password: string, options?: { emailVerified?: boolean }) {
   const users = getUsers();
   const cleanName = displayUserName(name);
   const normalizedName = normalizeUserName(cleanName);
@@ -127,6 +129,7 @@ export function createUser(name: string, email: string, password: string) {
     id: `user_${Date.now().toString(36)}`,
     name: cleanName,
     email: normalizedEmail,
+    emailVerified: Boolean(options?.emailVerified),
     password: cleanPassword,
     twoFactorEnabled: false
   };
@@ -139,19 +142,29 @@ export function updateUser(updatedUser: RovixUser) {
   const users = getUsers();
   const cleanName = displayUserName(updatedUser.name);
   const normalizedName = normalizeUserName(cleanName);
+  const normalizedEmail = normalizeEmail(updatedUser.email);
 
   if (cleanName.length < 2) {
     throw new Error("Digite um nome de usuário válido.");
+  }
+
+  const emailError = getEmailValidationError(updatedUser.email);
+  if (emailError) {
+    throw new Error(emailError);
   }
 
   if (users.some((user) => user.id !== updatedUser.id && normalizeUserName(user.name) === normalizedName)) {
     throw new Error("Esse nome de usuário já está em uso. Escolha outro.");
   }
 
+  if (users.some((user) => user.id !== updatedUser.id && normalizeEmail(user.email) === normalizedEmail)) {
+    throw new Error("Esse e-mail ja esta cadastrado.");
+  }
+
   const nextUser = {
     ...updatedUser,
     name: cleanName,
-    email: normalizeEmail(updatedUser.email),
+    email: normalizedEmail,
     password: normalizePassword(updatedUser.password)
   };
   const nextUsers = users.map((user) => (user.id === nextUser.id ? nextUser : user));
@@ -215,6 +228,27 @@ export function changeUserName(user: RovixUser, nextName: string) {
   });
 }
 
+export function changeUserEmail(user: RovixUser, nextEmail: string) {
+  const users = getUsers();
+  const currentUser = users.find((current) => current.id === user.id) || user;
+  const emailError = getEmailValidationError(nextEmail);
+  if (emailError) {
+    throw new Error(emailError);
+  }
+
+  const normalizedEmail = normalizeEmail(nextEmail);
+  if (users.some((current) => current.id !== user.id && normalizeEmail(current.email) === normalizedEmail)) {
+    throw new Error("Esse e-mail ja esta cadastrado.");
+  }
+
+  return updateUser({
+    ...currentUser,
+    ...user,
+    email: normalizedEmail,
+    emailVerified: true
+  });
+}
+
 export function findUser(email: string) {
   const normalizedEmail = normalizeEmail(email);
   return getUsers().find((user) => normalizeEmail(user.email) === normalizedEmail);
@@ -228,6 +262,12 @@ export function isUserNameTaken(name: string, ignoredUserId?: string) {
   const normalizedName = normalizeUserName(name);
   if (!normalizedName) return false;
   return getUsers().some((user) => user.id !== ignoredUserId && normalizeUserName(user.name) === normalizedName);
+}
+
+export function isEmailTaken(email: string, ignoredUserId?: string) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return false;
+  return getUsers().some((user) => user.id !== ignoredUserId && normalizeEmail(user.email) === normalizedEmail);
 }
 
 export function setSession(user: RovixUser) {

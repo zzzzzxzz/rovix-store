@@ -5,7 +5,16 @@ import { AlertCircle, CheckCircle2, KeyRound, Loader2, LogIn, UserPlus, X } from
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createUser, findUser, isUserNameTaken, setSession, verifyUserPassword, type RovixUser } from "@/lib/auth-store";
+import {
+  createUser,
+  findUser,
+  isEmailTaken,
+  isUserNameTaken,
+  setSession,
+  updateUser,
+  verifyUserPassword,
+  type RovixUser
+} from "@/lib/auth-store";
 import { verifyTotp } from "@/lib/totp";
 import { getEmailValidationError, normalizeEmail } from "@/lib/validators";
 
@@ -16,18 +25,29 @@ type AuthModalProps = {
 };
 
 type AuthTab = "login" | "register";
+type PendingStep = "email" | "2fa" | null;
 
 export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
   const [tab, setTab] = useState<AuthTab>("login");
   const [pendingUser, setPendingUser] = useState<RovixUser | null>(null);
+  const [pendingStep, setPendingStep] = useState<PendingStep>(null);
+  const [verificationToken, setVerificationToken] = useState("");
   const [loginForm, setLoginForm] = useState({ email: "", password: "", code: "" });
   const [registerForm, setRegisterForm] = useState({ name: "", email: "", password: "" });
+  const [registerToken, setRegisterToken] = useState("");
+  const [registerCode, setRegisterCode] = useState("");
+  const [registerCodeSent, setRegisterCodeSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setTab("login");
     setPendingUser(null);
+    setPendingStep(null);
+    setVerificationToken("");
+    setRegisterToken("");
+    setRegisterCode("");
+    setRegisterCodeSent(false);
   }, [open]);
 
   const registerName = registerForm.name.trim();
@@ -36,6 +56,10 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
   const registerNameTaken = useMemo(
     () => registerName.length >= 2 && isUserNameTaken(registerName),
     [registerName]
+  );
+  const registerEmailTaken = useMemo(
+    () => !registerEmailError && registerEmail.length > 0 && isEmailTaken(registerEmail),
+    [registerEmail, registerEmailError]
   );
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -46,14 +70,32 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
       const emailError = getEmailValidationError(loginForm.email);
       if (emailError) throw new Error(emailError);
 
-      const user = findUser(loginForm.email);
+      let user = findUser(loginForm.email);
       if (!user || !verifyUserPassword(user, loginForm.password)) {
         throw new Error("E-mail ou senha invalidos.");
       }
 
-      if (user.twoFactorEnabled && user.twoFactorSecret) {
-        if (!pendingUser) {
+      if (!user.emailVerified) {
+        if (pendingStep !== "email" || pendingUser?.id !== user.id || !verificationToken) {
+          const token = await requestEmailVerification(user.email, "login");
           setPendingUser(user);
+          setPendingStep("email");
+          setVerificationToken(token);
+          setLoginForm((current) => ({ ...current, code: "" }));
+          toast.success("Enviamos um codigo para o seu e-mail.");
+          return;
+        }
+
+        await confirmEmailVerification(user.email, loginForm.code, verificationToken, "login");
+        user = updateUser({ ...user, emailVerified: true });
+        toast.success("E-mail verificado com sucesso.");
+      }
+
+      if (user.twoFactorEnabled && user.twoFactorSecret) {
+        if (pendingStep !== "2fa" || pendingUser?.id !== user.id) {
+          setPendingUser(user);
+          setPendingStep("2fa");
+          setLoginForm((current) => ({ ...current, code: "" }));
           toast.message("Digite o codigo do Google Authenticator.");
           return;
         }
@@ -65,6 +107,8 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
       setSession(user);
       onAuthChange?.(user);
       setPendingUser(null);
+      setPendingStep(null);
+      setVerificationToken("");
       setLoginForm({ email: "", password: "", code: "" });
       toast.success("Login realizado com sucesso.");
       onClose();
@@ -75,8 +119,9 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
     }
   }
 
-  function handleRegister(event: FormEvent<HTMLFormElement>) {
+  async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setLoading(true);
 
     try {
       if (registerNameTaken) {
@@ -87,14 +132,37 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
         throw new Error(registerEmailError);
       }
 
-      const user = createUser(registerForm.name, registerEmail, registerForm.password);
+      if (registerEmailTaken) {
+        throw new Error("Esse e-mail ja esta cadastrado.");
+      }
+
+      if (registerForm.password.trim().length < 6) {
+        throw new Error("A senha precisa ter no minimo 6 caracteres.");
+      }
+
+      if (!registerCodeSent || !registerToken) {
+        const token = await requestEmailVerification(registerEmail, "register");
+        setRegisterToken(token);
+        setRegisterCode("");
+        setRegisterCodeSent(true);
+        toast.success("Codigo enviado. Confira seu e-mail para criar a conta.");
+        return;
+      }
+
+      await confirmEmailVerification(registerEmail, registerCode, registerToken, "register");
+      const user = createUser(registerForm.name, registerEmail, registerForm.password, { emailVerified: true });
       setSession(user);
       onAuthChange?.(user);
       setRegisterForm({ name: "", email: "", password: "" });
+      setRegisterToken("");
+      setRegisterCode("");
+      setRegisterCodeSent(false);
       toast.success("Conta criada. O 2FA fica opcional em Meu Perfil.");
       onClose();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Nao foi possivel criar conta.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -140,6 +208,8 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
                     onClick={() => {
                       setTab(item.id as AuthTab);
                       setPendingUser(null);
+                      setPendingStep(null);
+                      setVerificationToken("");
                     }}
                     className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-xs font-black uppercase tracking-[0.08em] transition ${
                       tab === item.id ? "bg-rovix-gold text-black" : "text-white/60 hover:bg-white/8 hover:text-white"
@@ -160,6 +230,8 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
                   value={loginForm.email}
                   onChange={(value) => {
                     setPendingUser(null);
+                    setPendingStep(null);
+                    setVerificationToken("");
                     setLoginForm((current) => ({ ...current, email: value }));
                   }}
                   placeholder="voce@email.com"
@@ -170,17 +242,21 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
                   value={loginForm.password}
                   onChange={(value) => {
                     setPendingUser(null);
+                    setPendingStep(null);
+                    setVerificationToken("");
                     setLoginForm((current) => ({ ...current, password: value }));
                   }}
                   placeholder="Sua senha"
                 />
-                {pendingUser && (
+                {pendingUser && pendingStep && (
                   <>
                     <div className="rounded-2xl border border-rovix-gold/30 bg-rovix-gold/10 p-4 text-sm font-bold leading-6 text-white/75">
-                      Essa conta ativou 2FA. Digite o codigo do Google Authenticator para concluir o login.
+                      {pendingStep === "email"
+                        ? "Esse e-mail precisa ser verificado. Digite o codigo enviado para continuar."
+                        : "Essa conta ativou 2FA. Digite o codigo do Google Authenticator para concluir o login."}
                     </div>
                     <AuthInput
-                      label="Codigo Google Authenticator"
+                      label={pendingStep === "email" ? "Codigo recebido no e-mail" : "Codigo Google Authenticator"}
                       value={loginForm.code}
                       onChange={(value) => setLoginForm((current) => ({ ...current, code: value.replace(/\D/g, "").slice(0, 6) }))}
                       placeholder="000000"
@@ -190,7 +266,7 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
                 )}
                 <Button type="submit" disabled={loading}>
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <KeyRound className="h-5 w-5" />}
-                  {pendingUser ? "Validar 2FA" : "Entrar"}
+                  {pendingStep === "email" ? "Verificar e entrar" : pendingStep === "2fa" ? "Validar 2FA" : "Entrar"}
                 </Button>
               </form>
             )}
@@ -217,13 +293,21 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
                   label="E-mail"
                   type="email"
                   value={registerForm.email}
-                  onChange={(value) => setRegisterForm((current) => ({ ...current, email: value }))}
+                  onChange={(value) => {
+                    setRegisterForm((current) => ({ ...current, email: value }));
+                    setRegisterToken("");
+                    setRegisterCode("");
+                    setRegisterCodeSent(false);
+                  }}
                   placeholder="voce@email.com"
                 />
                 {registerForm.email.trim().length > 0 && (
                   <ValidationMessage
-                    valid={!registerEmailError}
-                    message={registerEmailError || "E-mail com formato valido."}
+                    valid={!registerEmailError && !registerEmailTaken}
+                    message={
+                      registerEmailError ||
+                      (registerEmailTaken ? "Esse e-mail ja esta cadastrado." : "E-mail com formato valido.")
+                    }
                   />
                 )}
                 <AuthInput
@@ -234,9 +318,23 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
                   placeholder="Minimo 6 caracteres"
                   minLength={6}
                 />
-                <Button type="submit" disabled={registerNameTaken || Boolean(registerEmailError)}>
+                {registerCodeSent && (
+                  <>
+                    <div className="rounded-2xl border border-rovix-gold/30 bg-rovix-gold/10 p-4 text-sm font-bold leading-6 text-white/75">
+                      Enviamos um codigo para {registerEmail}. Digite os 6 digitos para confirmar seu e-mail.
+                    </div>
+                    <AuthInput
+                      label="Codigo recebido no e-mail"
+                      value={registerCode}
+                      onChange={(value) => setRegisterCode(value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="000000"
+                      inputMode="numeric"
+                    />
+                  </>
+                )}
+                <Button type="submit" disabled={loading || registerNameTaken || Boolean(registerEmailError) || registerEmailTaken}>
                   <UserPlus className="h-5 w-5" />
-                  Criar conta
+                  {registerCodeSent ? "Verificar e criar conta" : "Enviar codigo no e-mail"}
                 </Button>
               </form>
             )}
@@ -245,6 +343,41 @@ export function AuthModal({ open, onClose, onAuthChange }: AuthModalProps) {
       )}
     </AnimatePresence>
   );
+}
+
+type EmailVerificationPurpose = "register" | "change-email" | "login";
+
+async function requestEmailVerification(email: string, purpose: EmailVerificationPurpose) {
+  const response = await fetch("/api/auth/email-code", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, purpose })
+  });
+  const data = (await response.json().catch(() => ({}))) as { token?: string; error?: string };
+
+  if (!response.ok || !data.token) {
+    throw new Error(data.error || "Nao foi possivel enviar o codigo.");
+  }
+
+  return data.token;
+}
+
+async function confirmEmailVerification(
+  email: string,
+  code: string,
+  token: string,
+  purpose: EmailVerificationPurpose
+) {
+  const response = await fetch("/api/auth/verify-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code, token, purpose })
+  });
+  const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || "Codigo de verificacao invalido.");
+  }
 }
 
 type AuthInputProps = {

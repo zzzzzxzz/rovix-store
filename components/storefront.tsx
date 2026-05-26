@@ -76,6 +76,14 @@ export function Storefront() {
     const currentUser = getSessionUser();
 
     if (currentUser) {
+      if (!currentUser.emailVerified) {
+        clearSession();
+        setSessionUser(null);
+        setAuthOpen(true);
+        toast.error("Verifique seu e-mail antes de comprar na Rovix.");
+        return null;
+      }
+
       setSessionUser(currentUser);
       return currentUser;
     }

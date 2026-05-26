@@ -1,19 +1,22 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, Camera, CheckCircle2, Copy, Loader2, Shield, X } from "lucide-react";
+import { Bell, Camera, CheckCircle2, Copy, Loader2, Mail, Shield, X } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   changeUserName,
+  changeUserEmail,
   getNameChangeState,
   getSessionUser,
+  isEmailTaken,
   isUserNameTaken,
   updateUser,
   verifyUserPassword,
   type RovixUser
 } from "@/lib/auth-store";
 import { createOtpAuthUrl, createQrUrl, generateTotpSecret, verifyTotp } from "@/lib/totp";
+import { getEmailValidationError, normalizeEmail } from "@/lib/validators";
 
 type ProfileModalProps = {
   open: boolean;
@@ -28,6 +31,12 @@ export function ProfileModal({ open, user, onClose, onUserChange }: ProfileModal
   const [fileName, setFileName] = useState("Nenhum arquivo escolhido");
   const [displayName, setDisplayName] = useState("");
   const [nameLoading, setNameLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailToken, setEmailToken] = useState("");
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -40,6 +49,11 @@ export function ProfileModal({ open, user, onClose, onUserChange }: ProfileModal
     setPreview(user.avatarDataUrl || "");
     setFileName("Nenhum arquivo escolhido");
     setDisplayName(user.name);
+    setEmail(user.email);
+    setEmailPassword("");
+    setEmailCode("");
+    setEmailToken("");
+    setEmailCodeSent(false);
     setPassword("");
     setCode("");
     if (!user.twoFactorEnabled) setSetupSecret(generateTotpSecret());
@@ -67,6 +81,11 @@ export function ProfileModal({ open, user, onClose, onUserChange }: ProfileModal
   const nameTaken = Boolean(user && cleanDisplayName.length >= 2 && isUserNameTaken(cleanDisplayName, user.id));
   const nameChangeState = user ? getNameChangeState(user, clock) : null;
   const nameCooldownMs = nameChangeState?.remainingMs || 0;
+  const cleanEmail = normalizeEmail(email);
+  const emailChanged = Boolean(user && cleanEmail && cleanEmail !== user.email);
+  const verifyingCurrentEmail = Boolean(user && !user.emailVerified && cleanEmail === user.email);
+  const emailError = emailChanged ? getEmailValidationError(email) : "";
+  const emailTaken = Boolean(user && emailChanged && !emailError && isEmailTaken(cleanEmail, user.id));
 
   function saveUpdatedUser(nextUser: RovixUser) {
     const saved = updateUser(nextUser);
@@ -105,6 +124,62 @@ export function ProfileModal({ open, user, onClose, onUserChange }: ProfileModal
       toast.error(error instanceof Error ? error.message : "Não foi possível alterar o nome.");
     } finally {
       setNameLoading(false);
+    }
+  }
+
+  async function handleEmailChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!user) return;
+
+    if (!emailChanged && !verifyingCurrentEmail) {
+      toast.error("Digite um e-mail diferente do atual.");
+      return;
+    }
+
+    if (emailError) {
+      toast.error(emailError);
+      return;
+    }
+
+    if (emailTaken) {
+      toast.error("Esse e-mail ja esta cadastrado.");
+      return;
+    }
+
+    if (!verifyUserPassword(user, emailPassword)) {
+      toast.error("Senha da conta incorreta.");
+      return;
+    }
+
+    setEmailLoading(true);
+
+    try {
+      const purpose = verifyingCurrentEmail ? "verify-email" : "change-email";
+
+      if (!emailCodeSent || !emailToken) {
+        const token = await requestEmailVerification(cleanEmail, purpose);
+        setEmailToken(token);
+        setEmailCode("");
+        setEmailCodeSent(true);
+        toast.success(`Codigo enviado para ${cleanEmail}.`);
+        return;
+      }
+
+      await confirmEmailVerification(cleanEmail, emailCode, emailToken, purpose);
+      const updated = verifyingCurrentEmail
+        ? updateUser({ ...user, emailVerified: true })
+        : changeUserEmail(user, cleanEmail);
+      onUserChange(updated);
+      setEmail(updated.email);
+      setEmailPassword("");
+      setEmailCode("");
+      setEmailToken("");
+      setEmailCodeSent(false);
+      toast.success(verifyingCurrentEmail ? "E-mail verificado com sucesso." : "E-mail alterado e verificado com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel alterar o e-mail.");
+    } finally {
+      setEmailLoading(false);
     }
   }
 
@@ -260,6 +335,72 @@ export function ProfileModal({ open, user, onClose, onUserChange }: ProfileModal
                 </div>
               </PanelCard>
 
+              <PanelCard title="E-mail da conta" icon={Mail}>
+                <div className="grid gap-5">
+                  <div className="rounded-xl border border-white/10 bg-black/35 p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">E-mail atual</p>
+                    <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="break-all text-base font-black text-white">{user.email}</p>
+                      <span
+                        className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-black uppercase ${
+                          user.emailVerified
+                            ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                            : "border-amber-400/35 bg-amber-500/10 text-amber-200"
+                        }`}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        {user.emailVerified ? "Verificado" : "Nao verificado"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleEmailChange} className="grid gap-4">
+                    <ProfileInput
+                      label="Novo e-mail"
+                      type="email"
+                      value={email}
+                      onChange={(value) => {
+                        setEmail(value);
+                        setEmailCode("");
+                        setEmailToken("");
+                        setEmailCodeSent(false);
+                      }}
+                    />
+                    {emailChanged && (
+                      <p className={`text-sm font-black ${emailError || emailTaken ? "text-red-200" : "text-emerald-200"}`}>
+                        {emailError || (emailTaken ? "Esse e-mail ja esta cadastrado." : "Novo e-mail com formato valido.")}
+                      </p>
+                    )}
+                    <ProfileInput label="Senha da conta" type="password" value={emailPassword} onChange={setEmailPassword} />
+                    {emailCodeSent && (
+                      <>
+                        <p className="rounded-xl border border-rovix-gold/30 bg-rovix-gold/10 p-4 text-sm font-bold text-white/75">
+                          Enviamos um codigo para {cleanEmail}. Digite os 6 digitos para confirmar a troca.
+                        </p>
+                        <ProfileInput
+                          label="Codigo recebido no e-mail"
+                          value={emailCode}
+                          onChange={(value) => setEmailCode(value.replace(/\D/g, "").slice(0, 6))}
+                        />
+                      </>
+                    )}
+                    <button
+                      disabled={!(emailChanged || verifyingCurrentEmail) || Boolean(emailError) || emailTaken || emailLoading}
+                      className="inline-flex h-11 w-fit min-w-48 items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-black text-black transition hover:bg-rovix-gold disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {emailLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {emailCodeSent
+                        ? verifyingCurrentEmail
+                          ? "Confirmar e-mail"
+                          : "Verificar e salvar e-mail"
+                        : verifyingCurrentEmail
+                          ? "Verificar e-mail atual"
+                          : "Enviar codigo de verificacao"}
+                    </button>
+                  </form>
+                </div>
+              </PanelCard>
+
               <PanelCard title="Foto de perfil" icon={Camera}>
                 <div className="grid gap-7 sm:grid-cols-[96px_1fr] sm:items-center">
                   <Avatar preview={preview} initials={initials} />
@@ -383,6 +524,41 @@ function formatCooldown(ms: number) {
   if (hours > 0) return `${hours}h ${minutes}min`;
   if (minutes > 0) return `${minutes}min ${seconds}s`;
   return `${seconds}s`;
+}
+
+type EmailVerificationPurpose = "register" | "change-email" | "login" | "verify-email";
+
+async function requestEmailVerification(email: string, purpose: EmailVerificationPurpose) {
+  const response = await fetch("/api/auth/email-code", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, purpose })
+  });
+  const data = (await response.json().catch(() => ({}))) as { token?: string; error?: string };
+
+  if (!response.ok || !data.token) {
+    throw new Error(data.error || "Nao foi possivel enviar o codigo.");
+  }
+
+  return data.token;
+}
+
+async function confirmEmailVerification(
+  email: string,
+  code: string,
+  token: string,
+  purpose: EmailVerificationPurpose
+) {
+  const response = await fetch("/api/auth/verify-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code, token, purpose })
+  });
+  const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || "Codigo de verificacao invalido.");
+  }
 }
 
 function PanelCard({ title, icon: Icon, children }: { title: string; icon: typeof Camera; children: React.ReactNode }) {
