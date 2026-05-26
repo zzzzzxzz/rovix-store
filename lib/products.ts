@@ -32,6 +32,24 @@ export const gamepassGames = [
     name: "Volleyball Legends",
     description: "Slots extras, VIP e recursos para montar seu melhor setup.",
     accent: "from-yellow-300 via-orange-500 to-purple-500"
+  },
+  {
+    slug: "strongest-battlegrounds",
+    name: "The Strongest Battlegrounds",
+    description: "Acesso antecipado, VIP, emotes e vantagens para batalhas premium.",
+    accent: "from-red-400 via-orange-500 to-yellow-400"
+  },
+  {
+    slug: "jujutsu-shenanigans",
+    name: "Jujutsu Shenanigans",
+    description: "Passes de emote, saves, roupas e acesso antecipado para jogar com estilo.",
+    accent: "from-violet-400 via-fuchsia-500 to-red-500"
+  },
+  {
+    slug: "murder-mystery-2",
+    name: "Murder Mystery 2",
+    description: "Passes clássicos para deixar sua conta mais completa no MM2.",
+    accent: "from-sky-300 via-blue-600 to-indigo-900"
   }
 ];
 
@@ -63,7 +81,25 @@ export const gamepassProducts: Product[] = [
   { id: "gp-volley-style-9", kind: "gamepass", title: "Slot de Estilo 9", game: "Volleyball Legends", gameSlug: "volleyball-legends", amount: 0, price: 9, badge: "Estilo", icon: "style-9", accent: "from-yellow-300 via-orange-500 to-black" },
   { id: "gp-volley-style-10", kind: "gamepass", title: "Slot de Estilo 10", game: "Volleyball Legends", gameSlug: "volleyball-legends", amount: 0, price: 9, badge: "Estilo", icon: "style-10", accent: "from-yellow-300 via-orange-500 to-black" },
   { id: "gp-volley-style-12", kind: "gamepass", title: "Slot de Estilo 12", game: "Volleyball Legends", gameSlug: "volleyball-legends", amount: 0, price: 9, badge: "Estilo", icon: "style-12", accent: "from-yellow-300 via-orange-500 to-black" },
-  { id: "gp-volley-style-13", kind: "gamepass", title: "Slot de Estilo 13", game: "Volleyball Legends", gameSlug: "volleyball-legends", amount: 0, price: 9, badge: "Estilo", icon: "style-13", accent: "from-yellow-300 via-orange-500 to-black" }
+  { id: "gp-volley-style-13", kind: "gamepass", title: "Slot de Estilo 13", game: "Volleyball Legends", gameSlug: "volleyball-legends", amount: 0, price: 9, badge: "Estilo", icon: "style-13", accent: "from-yellow-300 via-orange-500 to-black" },
+
+  { id: "gp-strongest-acesso-antecipado", kind: "gamepass", title: "Acesso Antecipado", game: "The Strongest Battlegrounds", gameSlug: "strongest-battlegrounds", amount: 0, price: 7.5, badge: "Acesso", icon: "zap", accent: "from-yellow-300 via-orange-500 to-red-700" },
+  { id: "gp-strongest-servidor-privado-plus", kind: "gamepass", title: "Servidor Privado+", game: "The Strongest Battlegrounds", gameSlug: "strongest-battlegrounds", amount: 0, price: 12.5, badge: "Servidor", icon: "terminal", accent: "from-slate-200 via-zinc-500 to-black" },
+  { id: "gp-strongest-slots-emote", kind: "gamepass", title: "Slots Extras de Emote", game: "The Strongest Battlegrounds", gameSlug: "strongest-battlegrounds", amount: 0, price: 2.5, badge: "Emote", icon: "sparkles", accent: "from-pink-300 via-fuchsia-500 to-purple-800" },
+  { id: "gp-strongest-vip", kind: "gamepass", title: "VIP", game: "The Strongest Battlegrounds", gameSlug: "strongest-battlegrounds", amount: 0, price: 7.5, badge: "Passe", icon: "vip", accent: "from-yellow-200 via-yellow-500 to-orange-700" },
+  { id: "gp-strongest-som-kill", kind: "gamepass", title: "Som de Kill", game: "The Strongest Battlegrounds", gameSlug: "strongest-battlegrounds", amount: 0, price: 5, badge: "Som", icon: "bell", accent: "from-cyan-300 via-blue-500 to-indigo-800" },
+  { id: "gp-strongest-segunda-pagina-emotes", kind: "gamepass", title: "Segunda Página de Emotes", game: "The Strongest Battlegrounds", gameSlug: "strongest-battlegrounds", amount: 0, price: 2.5, badge: "Emote", icon: "ticket", accent: "from-violet-300 via-purple-600 to-black" },
+  { id: "gp-strongest-roupa-despertar", kind: "gamepass", title: "Roupa de Despertar", game: "The Strongest Battlegrounds", gameSlug: "strongest-battlegrounds", amount: 0, price: 2.5, badge: "Roupa", icon: "crown", accent: "from-red-300 via-orange-600 to-black" },
+
+  { id: "gp-jujutsu-som-kill", kind: "gamepass", title: "Som de Kill Personalizado", game: "Jujutsu Shenanigans", gameSlug: "jujutsu-shenanigans", amount: 0, price: 2.5, badge: "Som", icon: "bell", accent: "from-cyan-300 via-blue-500 to-violet-800" },
+  { id: "gp-jujutsu-acesso-antecipado", kind: "gamepass", title: "Acesso Antecipado", game: "Jujutsu Shenanigans", gameSlug: "jujutsu-shenanigans", amount: 0, price: 7.5, badge: "Acesso", icon: "zap", accent: "from-yellow-300 via-orange-500 to-red-700" },
+  { id: "gp-jujutsu-slots-emote", kind: "gamepass", title: "Mais Slots de Emote", game: "Jujutsu Shenanigans", gameSlug: "jujutsu-shenanigans", amount: 0, price: 4, badge: "Emote", icon: "sparkles", accent: "from-pink-300 via-fuchsia-500 to-purple-800" },
+  { id: "gp-jujutsu-roupas-despertar", kind: "gamepass", title: "Roupas de Despertar", game: "Jujutsu Shenanigans", gameSlug: "jujutsu-shenanigans", amount: 0, price: 2.5, badge: "Roupa", icon: "crown", accent: "from-red-300 via-orange-600 to-black" },
+  { id: "gp-jujutsu-saves-construcao", kind: "gamepass", title: "Mais Saves de Construção", game: "Jujutsu Shenanigans", gameSlug: "jujutsu-shenanigans", amount: 0, price: 3.5, badge: "Save", icon: "ticket", accent: "from-lime-300 via-emerald-500 to-teal-800" },
+  { id: "gp-jujutsu-segunda-pagina-emotes", kind: "gamepass", title: "Segunda Página de Emotes", game: "Jujutsu Shenanigans", gameSlug: "jujutsu-shenanigans", amount: 0, price: 4.5, badge: "Emote", icon: "ticket", accent: "from-violet-300 via-purple-600 to-black" },
+
+  { id: "gp-mm2-elite", kind: "gamepass", title: "Elite", game: "Murder Mystery 2", gameSlug: "murder-mystery-2", amount: 0, price: 12.5, badge: "Elite", icon: "crown", accent: "from-yellow-200 via-yellow-500 to-orange-700" },
+  { id: "gp-mm2-radio", kind: "gamepass", title: "Rádio", game: "Murder Mystery 2", gameSlug: "murder-mystery-2", amount: 0, price: 12, badge: "Som", icon: "bell", accent: "from-sky-300 via-blue-500 to-indigo-900" }
 ];
 
 export const products: Product[] = [...robuxProducts, ...gamepassProducts];
